@@ -2,3 +2,29 @@ build/
 DerivedData/
 .DS_Store
 xcuserdata/
+
+# --- MicroLumin kit + secrets (added) ---
+# MicroLumin M6 SDK kit is confidential: never commit it (this repo is public).
+MICROLUMIN_SHIP*/
+MICROLUMIN_SHIP*.zip
+microlumin-kit/
+01_Start_Here/
+02_Android_SDK/
+03_iOS_SDK/
+04_Demo_Apps/
+**/MLVisionM6SDK*/
+**/Pods/
+
+# Xcode / iOS
+*.xcuserstate
+
+# Android
+.gradle/
+local.properties
+*.apk
+
+# Env and OS
+.env
+.env.*
+!.env.example
+node_modules/

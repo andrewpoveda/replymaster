@@ -1,6 +1,8 @@
 # Vocal — Design Doc
 
-**Status:** Draft v0.1 (Nov 20, 2026) · concept and architecture only, no code yet
+**Status:** Draft v0.2 (Nov 21, 2026) · iPhone hub app in `ios-vocal/`, glasses app in `glasses-hello/`, wire protocol in [`PROTOCOL.md`](PROTOCOL.md)
+
+> **Team decision (Idea Design v4, Nov 21):** the primary user is now **Deaf and hard-of-hearing people** in face-to-face conversation; ALS and speech loss move to "another user" in what's next. Sections 2–6 below still describe the earlier ALS-first concept and are kept for reference. Where this doc and `PROTOCOL.md` disagree, `PROTOCOL.md` wins.
 **Working repo name:** replymaster
 
 > **One line:** Vocal is a pair of smart glasses plus an iPhone app that carries one turn of a conversation for you. It hears the other person, shows what they said in your view, suggests what you might say back, and speaks your choice in your own voice.
@@ -121,6 +123,8 @@ The glasses speakers are designed to be **leak-proof** (private to the wearer). 
 
 **The iPhone is the hub. The glasses are a display and an input device.**
 
+> **Update (v0.2, after the hackathon kit):** the phone-side glasses SDK drives the glasses' built-in apps but cannot draw our own text. So Vocal ships **two apps**: the iPhone app (listening, suggestions, voice) and a small **glasses app** (`glasses-hello/`, plain Android) that renders the screen and reads the temple touchpad / ring as key events. They talk over **TCP port 8787 with one JSON object per line**; the glasses app is the server and advertises itself over Bonjour (`_replymaster._tcp`). Full spec: [`PROTOCOL.md`](PROTOCOL.md). The glasses SDK is still used on the iPhone for pairing and joining the glasses to Wi‑Fi.
+
 ```
           ┌─────────────────────────── iPhone (Vocal app, Swift) ───────────────────────────┐
   voice → │ Mic → Speech recognition (on-device) → Conversation state                      │
@@ -148,21 +152,22 @@ The glasses speakers are designed to be **leak-proof** (private to the wearer). 
 | **Backend** | Holds API keys, calls the LLM, no conversation storage | Small server (e.g. Node/TS) |
 | **TTS** | Speak the chosen reply in the user's voice | AVSpeechSynthesizer with Apple Personal Voice (iOS 17+), system voice fallback |
 | **Input manager** | Normalize all inputs to `next` / `select` / `back`; scanning timer | CoreBluetooth, on-screen controls |
-| **GlassesLink** | Send screen state to the glasses, receive input events | **Interface only** until vendor SDK is known. Implementations: `SimulatorLink` (web/iPad preview), `MLVisionLink` (BLE or Wi‑Fi) |
+| **GlassesLink** | Send screen snapshots to the glasses, receive actions | TCP client → glasses app on port 8787, newline-delimited JSON ([`PROTOCOL.md`](PROTOCOL.md)) |
+| **Glasses app** | Draw caption, replies and quick phrases; turn touchpad / ring into next / select locally; send `choosing` / `select` / `help` back | `glasses-hello/`, plain Android (API 28), TCP server + Bonjour |
 | **Glasses simulator** | 640×480 green preview so we can build and demo without hardware | In-app view or small web page |
 
-### GlassesLink contract (draft)
+### GlassesLink contract
 
-Keeping this small means we can swap glasses models without touching the rest of the app.
+Superseded by [`PROTOCOL.md`](PROTOCOL.md). Summary:
 
 ```
-iPhone → glasses
-  render { caption: string[≤2], options: string[≤3], quick: string[], highlighted: int }
-  clear {}
+iPhone → glasses   (full snapshot on every change)
+  {"type":"caption","text":"...","final":true,"rev":42,"state":"listening|choosing|speaking|help",
+   "caption":"...","replies":[≤3],"quick":[...],"tones":[...],"tone":"neutral","said":null,"mic":"listening"}
 
 glasses → iPhone
-  input { action: "next" | "select" | "back", source: "touch" | "ring" | "imu" }
-  status { connected: bool, battery: int }
+  {"action":"choosing"} · {"action":"select","text":"...","tone":"warm"} · {"action":"cancel"}
+  {"action":"help"} · {"action":"help_cancel"}
 ```
 
 ### Latency budget (target)
@@ -198,7 +203,9 @@ Three MLVISION (Microlumin) models are documented in `docs/` (product brochures 
 - **M5** (alone or on L5 AI) is a display accessory over Bluetooth; workable if the BLE display protocol is available.
 - **L5 AI** alone has no display but has the IMU we want for head-nod input.
 
-### Questions for the vendor (blocking for real-device work)
+### Questions for the vendor (status after the hackathon kit)
+
+Answered by the hackathon kit: custom text needs our own glasses app (Q2); the touchpad and ring arrive in that app as Android key events (Q3); glasses apps install over `adb` in Developer Mode (Q4). Still open: Q5 and IMU access.
 
 1. Which model(s) will we get, and how many units?
 2. Is there a developer SDK or documented BLE/Wi‑Fi protocol to **draw text** on the display from a third-party iPhone app?
@@ -206,7 +213,6 @@ Three MLVISION (Microlumin) models are documented in `docs/` (product brochures 
 4. M6: can we sideload an APK? Any restrictions on background apps, mic or network?
 5. Can the built-in voice assistant and translation features be turned off, so they do not compete with our app?
 
-Until these are answered we build against `SimulatorLink`.
 
 ## 9. Data and privacy
 

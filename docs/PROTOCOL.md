@@ -77,3 +77,17 @@ node tools/mock-glasses.js          # listens on 0.0.0.0:8787
 > h                 # help
 > x                 # help_cancel
 ```
+
+## Open for v4 (Deaf and hard-of-hearing focus)
+
+The team doc moved the primary user to Deaf and hard-of-hearing people. The wire format above doesn't need to change, but these drawing choices should be confirmed by the glasses and iPhone devs:
+
+- **Caption lines:** v3 used one caption line (for ALS users captions only confirm what was heard). For Deaf and hard-of-hearing users captions are the main content, so the glasses should show **up to two lines**. `caption` can carry a newline, or the glasses keep the previous final line above the new partial one.
+- **When replies appear:** only after the speaker pauses (`final: true`), so the caption stays readable while someone is talking.
+- **HELP and tones:** still in the protocol, but not part of the v4 demo story. Keep them working; the pitch leads with captions and one-tap replies.
+
+## Glasses input and capture notes
+
+- Touchpad and ring events reach a glasses app as ordinary Android `KeyEvent`s (or scroll/touch `MotionEvent`s). Log them with `adb logcat` and map them to next / select; the exact key codes from the real touchpad are **not confirmed yet**.
+- A useful starting map while testing: `DPAD_RIGHT`/`DPAD_DOWN`/`TAB` → next, `DPAD_LEFT`/`DPAD_UP` → previous, `ENTER`/`DPAD_CENTER` → select, `BACK` → cancel. The same keys can be sent from a laptop with `adb shell input keyevent KEYCODE_DPAD_DOWN`.
+- **AR screen recording for the submission:** with the glasses on USB, `adb shell screenrecord --time-limit 60 /sdcard/vocal.mp4`, then `adb pull /sdcard/vocal.mp4`. A screenshot: `adb exec-out screencap -p > vocal.png`. If the display is asleep, wake it first with `adb shell input keyevent KEYCODE_WAKEUP`.
