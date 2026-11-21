@@ -29,6 +29,10 @@ final class SpeechService: NSObject, ObservableObject {
     @Published private(set) var usingPersonalVoice = false
     @Published private(set) var personalVoiceStatus = AVSpeechSynthesizer.personalVoiceAuthorizationStatus
 
+    /// Set when iOS refused to render the Personal Voice to a buffer (`write`), so glasses playback
+    /// falls back to the phone speaker. Cleared when the voice changes.
+    @Published private(set) var personalVoiceRenderBlocked = false
+
     /// User preference: speak replies in their Apple Personal Voice when one is available and authorized.
     var preferPersonalVoice = true { didSet { refreshVoice() } }
 
@@ -57,6 +61,7 @@ final class SpeechService: NSObject, ObservableObject {
 
     /// Ask iOS for permission to use the user's Personal Voice. Shows the system prompt once.
     func requestPersonalVoice() {
+        guard AVSpeechSynthesizer.personalVoiceAuthorizationStatus == .notDetermined else { refreshVoice(); return }
         AVSpeechSynthesizer.requestPersonalVoiceAuthorization { status in
             Task { @MainActor in
                 self.personalVoiceStatus = status
@@ -73,6 +78,7 @@ final class SpeechService: NSObject, ObservableObject {
             ? AVSpeechSynthesisVoice.speechVoices().first { $0.voiceTraits.contains(.isPersonalVoice) }
             : nil
         if preferPersonalVoice, let personal {
+            if voice?.identifier != personal.identifier { personalVoiceRenderBlocked = false }
             voice = personal
             usingPersonalVoice = true
             voiceName = "\(personal.name) (Personal Voice)"
@@ -86,33 +92,53 @@ final class SpeechService: NSObject, ObservableObject {
     private let renderSynth = AVSpeechSynthesizer()
 
     /// Render `text` in the reply voice + tone to mono 16-bit PCM (for playback on the glasses).
+    /// Returns nil if iOS gives no audio (e.g. it refuses to render a Personal Voice) or takes too long;
+    /// the caller then speaks on the phone so a reply never goes silent.
     func renderPCM(_ text: String, tone: Tone) async -> (pcm: Data, rate: Int)? {
         let u = AVSpeechUtterance(string: text)
         u.voice = voice
         u.rate = min(AVSpeechUtteranceMaximumSpeechRate, AVSpeechUtteranceDefaultSpeechRate * tone.rateFactor)
         u.pitchMultiplier = tone.pitch
-        return await withCheckedContinuation { cont in
+        let personal = usingPersonalVoice
+        let synth = renderSynth
+        let result: (pcm: Data, rate: Int)? = await withCheckedContinuation { cont in
             var out = Data()
             var rate = 22050
             var done = false
-            renderSynth.write(u) { buffer in
+            let finish: () -> Void = {
                 guard !done else { return }
-                guard let pcm = buffer as? AVAudioPCMBuffer, pcm.frameLength > 0 else {
-                    done = true
-                    cont.resume(returning: out.isEmpty ? nil : (out, rate))
-                    return
+                done = true
+                cont.resume(returning: out.isEmpty ? nil : (out, rate))
+            }
+            // Safety net: if iOS never ends the stream, give up and let the phone speak.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                if !done { synth.stopSpeaking(at: .immediate); out = Data(); finish() }
+            }
+            synth.write(u) { buffer in
+                // Copy samples here (iOS may reuse the buffer), then hand them to the main actor.
+                var chunk: Data?
+                var chunkRate = 22050
+                if let pcm = buffer as? AVAudioPCMBuffer, pcm.frameLength > 0 {
+                    chunkRate = Int(pcm.format.sampleRate)
+                    let n = Int(pcm.frameLength)
+                    if let f = pcm.floatChannelData?[0] {
+                        var samples = [Int16](repeating: 0, count: n)
+                        for i in 0..<n { samples[i] = Int16(max(-1, min(1, f[i])) * 32767) }
+                        chunk = samples.withUnsafeBytes { Data($0) }
+                    } else if let i16 = pcm.int16ChannelData?[0] {
+                        chunk = Data(bytes: i16, count: n * 2)
+                    }
                 }
-                rate = Int(pcm.format.sampleRate)
-                let n = Int(pcm.frameLength)
-                if let f = pcm.floatChannelData?[0] {
-                    var samples = [Int16](repeating: 0, count: n)
-                    for i in 0..<n { samples[i] = Int16(max(-1, min(1, f[i])) * 32767) }
-                    samples.withUnsafeBytes { out.append(contentsOf: $0) }
-                } else if let i16 = pcm.int16ChannelData?[0] {
-                    out.append(Data(bytes: i16, count: n * 2))
+                DispatchQueue.main.async {
+                    guard !done else { return }
+                    guard let chunk else { finish(); return }   // empty buffer = end of stream
+                    rate = chunkRate
+                    out.append(chunk)
                 }
             }
         }
+        if personal { personalVoiceRenderBlocked = (result == nil) }
+        return result
     }
 
     /// Speak exactly `text`. Ignored while already speaking or during HELP (one press = one utterance).

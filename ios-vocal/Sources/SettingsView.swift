@@ -45,20 +45,34 @@ struct SettingsView: View {
                     switch m.speech.personalVoiceStatus {
                     case .authorized:
                         if !m.speech.usingPersonalVoice && m.usePersonalVoice {
-                            Text("Allowed, but no Personal Voice found on this iPhone yet. Create one in Settings → Accessibility → Personal Voice, then come back.")
+                            Text("Access allowed, but no Personal Voice was found. On your iPhone open Settings → Accessibility → Personal Voice → Create a Personal Voice. When it says it's ready, come back to Vocal.")
                                 .font(.footnote).foregroundStyle(.orange)
+                            openSettingsButton
                         }
                     case .denied:
-                        Text("Access denied. Turn it on in Settings → Accessibility → Personal Voice → Allow Apps to Request to Use.")
+                        Text("Vocal isn't allowed to use your Personal Voice. Open Settings → Accessibility → Personal Voice, turn on \"Allow Apps to Request to Use\", and make sure Vocal is switched on in the list below it. Then come back to Vocal.")
                             .font(.footnote).foregroundStyle(.orange)
+                        openSettingsButton
                     case .unsupported:
-                        Text("Personal Voice isn't supported on this device.").font(.footnote).foregroundStyle(.gray)
+                        Text("Personal Voice isn't supported on this iPhone (needs iOS 17 or later on a supported model). Replies use the system voice.")
+                            .font(.footnote).foregroundStyle(.gray)
                     default:
+                        Text("Not asked yet. Tap below and choose Allow. If no prompt appears, first turn on Settings → Accessibility → Personal Voice → Allow Apps to Request to Use.")
+                            .font(.footnote).foregroundStyle(.gray)
                         Button("Allow Vocal to use my Personal Voice") { m.speech.requestPersonalVoice() }
                     }
                     Button("Play sample") { m.say("Hi, this is how I sound.", source: .sample) ; dismiss() }
                 } header: { Text("Personal Voice") } footer: {
-                    Text("Replies use your Personal Voice when it's available; otherwise the system voice. HELP always uses the system voice so the alarm stays clear.")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Replies use your Personal Voice when it's available; otherwise the system voice. HELP always uses the system voice so the alarm stays clear.")
+                        if m.speech.usingPersonalVoice {
+                            Text("Tones change speed with your Personal Voice; iOS may ignore the pitch change for it.")
+                        }
+                        if m.speech.personalVoiceRenderBlocked {
+                            Text("iOS didn't let Vocal turn your Personal Voice into audio for the glasses, so replies play from the iPhone speaker instead. Choose the system voice (turn off the toggle above) to hear replies on the glasses.")
+                                .foregroundStyle(.orange)
+                        }
+                    }
                 }
 
                 Section {
@@ -88,6 +102,12 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .onAppear { portText = String(m.glassesPort) }
+        }
+    }
+
+    private var openSettingsButton: some View {
+        Button("Open Settings") {
+            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
         }
     }
 }

@@ -9,6 +9,15 @@ struct VocalApp: App {
             RootView().environmentObject(model)
                 .preferredColorScheme(.dark)
                 .onChange(of: phase) { _, p in if p == .active { model.speech.refreshVoice() } }
+                .task {
+                    // Ask for Personal Voice once, on first launch. iOS only prompts while
+                    // the status is notDetermined; Settings keeps a button to ask again.
+                    let key = "askedPersonalVoice"
+                    if !UserDefaults.standard.bool(forKey: key) {
+                        UserDefaults.standard.set(true, forKey: key)
+                        model.speech.requestPersonalVoice()
+                    }
+                }
         }
     }
 }
