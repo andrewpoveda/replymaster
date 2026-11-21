@@ -40,29 +40,26 @@ struct GlassesPreview: View {
                 .foregroundStyle(green)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         case .listening, .choosing:
-            VStack(alignment: .leading, spacing: 10 * s) {
+            VStack(alignment: .leading, spacing: 2 * s) {
                 Text(snapshot.caption.isEmpty ? " " : "“\(snapshot.caption)”")
                     .font(.system(size: 28 * s, weight: .semibold))
                     .lineLimit(1)
                     .foregroundStyle(green.opacity(0.85))
-                Spacer(minLength: 0)
-                ForEach(Array(snapshot.replies.enumerated()), id: \.offset) { i, r in
-                    // Preview highlights the first reply while choosing (real highlight lives on the glasses).
+                // Same column as the glasses: replies, then quick phrases, then the tone item, one per row.
+                let items = snapshot.replies + snapshot.quick + ["Tone: \(snapshot.tone.rawValue)"]
+                ForEach(Array(items.enumerated()), id: \.offset) { i, item in
+                    let reply = i < snapshot.replies.count
+                    let tone = i == items.count - 1
+                    // Preview highlights the first item while choosing (real highlight lives on the glasses).
                     let hl = snapshot.state == .choosing && i == 0
-                    HStack(spacing: 8 * s) {
-                        Text(r).font(.system(size: 32 * s, weight: .bold)).lineLimit(1)
-                        if hl { Text("[\(snapshot.tone.rawValue)]").font(.system(size: 22 * s, weight: .semibold)) }
-                    }
-                    .padding(.horizontal, 8 * s).padding(.vertical, 2 * s)
-                    .foregroundStyle(hl ? Color.black : green)
-                    .background(hl ? green : .clear)
+                    Text(hl && !tone ? "\(item)   [\(snapshot.tone.rawValue)]" : item)
+                        .font(.system(size: (reply ? 28 : tone ? 20 : 22) * s, weight: reply ? .bold : .regular))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10 * s).padding(.vertical, 2 * s)
+                        .foregroundStyle(hl ? Color.black : green)
+                        .background(hl ? green : .clear)
                 }
-                Spacer(minLength: 0)
-                Rectangle().fill(green.opacity(0.5)).frame(height: max(1, 2 * s))
-                Text(snapshot.quick.joined(separator: " · "))
-                    .font(.system(size: 24 * s, weight: .semibold))
-                    .lineLimit(2)
-                    .foregroundStyle(green)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
