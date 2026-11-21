@@ -6,7 +6,7 @@ Vocal is an iPhone-first accessibility app for MicroLumin M6 glasses. The iPhone
 
 ## Current targets
 
-- `ios-livecaptions/` is the iPhone Swift app.
+- `ios-vocal/` is the main iPhone SwiftUI app.
 - `glasses-hello/` is the Android app installed directly on the glasses.
 - `MLDemo` in `/Users/albertlieyeong/Downloads/Microlumin_Ship/04_Demo_Apps/MLDemo` is the vendor iPhone control app and SDK reference.
 
