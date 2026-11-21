@@ -10,9 +10,13 @@ Smart glasses + iPhone app that help people with ALS or speech loss keep up with
 The current demo has two apps:
 
 - `ios-livecaptions/`: Swift iPhone app that transcribes speech and sends caption messages over TCP.
-- `glasses-hello/`: Android app for the M6 glasses that displays captions on port `8787`.
+- `glasses-hello/`: standalone Android proof-of-concept for the M6 glasses. It can listen, hold a reply, speak it, and launch the glasses camera. It also retains the caption receiver on port `8787`.
 
 The glasses-side app is installed with `adb`; the iPhone app is installed with Xcode. The iPhone and glasses must be on the same Wi-Fi network for caption transport. The iPhone discovers the glasses automatically with Bonjour, while still allowing manual IP entry.
+
+### Run standalone on the glasses
+
+The glasses app does not require the iPhone for its basic proof-of-concept controls. Open `Vocal Standalone` on the glasses, tap **Listen** and speak, tap **Speak Reply** to speak the recognized text, or tap **Take Photo** to launch the glasses camera. Camera understanding/OCR still needs a vision model or the vendor camera/file SDK.
 
 ### Run on the glasses
 
