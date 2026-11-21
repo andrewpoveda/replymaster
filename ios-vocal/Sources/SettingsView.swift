@@ -76,6 +76,29 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    ForEach(m.quick, id: \.self) { phrase in
+                        HStack {
+                            Text(phrase)
+                            Spacer()
+                            if m.speech.recordingPhrase == phrase {
+                                Button("Stop") { m.stopRecording() }.foregroundStyle(.red)
+                            } else {
+                                if m.speech.hasRecording(phrase) {
+                                    Button("Play") { m.say(phrase, source: .sample) }
+                                    Button(role: .destructive) { m.speech.deleteRecording(phrase) } label: { Image(systemName: "trash") }
+                                }
+                                Button(m.speech.hasRecording(phrase) ? "Redo" : "Record") { m.startRecording(phrase) }
+                                    .disabled(m.speech.recordingPhrase != nil)
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    .id(m.speech.recordingsVersion)
+                } header: { Text("My recordings") } footer: {
+                    Text("Record yourself saying each quick phrase (up to 10 s). When a reply matches a recorded phrase exactly, Vocal plays your recording on the iPhone and the glasses instead of the synthetic voice. Tones don't change recordings.")
+                }
+
+                Section {
                     Toggle("On-device captions only", isOn: $m.onDeviceOnly)
                 } header: { Text("Captions") } footer: {
                     Text("When on, captions never use Apple's servers; if this iPhone can't caption on device, captions show as unavailable instead of silently switching.")
