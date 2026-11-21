@@ -122,6 +122,25 @@ public final class MainActivity extends Activity implements TextToSpeech.OnInitL
         requestPermissionsIfNeeded();
         registerService();
         startServer();
+        // Demo shortcut (from a Mac over USB, no effect on the iPhone link):
+        //   adb shell am broadcast -a com.replymaster.glasseshello.DEMO
+        registerReceiver(new android.content.BroadcastReceiver() {
+            @Override public void onReceive(android.content.Context c, Intent i) {
+                String caption = i.getStringExtra("caption");
+                if (caption == null) caption = "Do you want some water?";
+                try {
+                    JSONObject o = new JSONObject();
+                    o.put("state", "listening");
+                    o.put("caption", caption);
+                    o.put("mic", "listening");
+                    o.put("replies", new org.json.JSONArray(java.util.Arrays.asList("Yes, please", "Not right now", "Maybe later")));
+                    o.put("quick", new org.json.JSONArray(java.util.Arrays.asList("Yes", "No", "Wait", "Repeat please", "Thank you", "Haha")));
+                    standalonePanel.setVisibility(View.GONE);
+                    vocalPanel.setVisibility(View.VISIBLE);
+                    apply(o.toString());
+                } catch (Exception ignored) { }
+            }
+        }, new android.content.IntentFilter("com.replymaster.glasseshello.DEMO"));
         ui.post(flasher);
     }
 
