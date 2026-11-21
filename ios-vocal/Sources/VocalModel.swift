@@ -34,6 +34,7 @@ final class VocalModel: ObservableObject {
     @Published var suggestionURL: String { didSet { save(suggestionURL, "suggestionURL") } }
     @Published var phraseSet: PhraseSet { didSet { save(phraseSet.rawValue, "phraseSet"); publish() } }
     @Published var usePersonalVoice: Bool { didSet { save(usePersonalVoice, "usePersonalVoice"); speech.preferPersonalVoice = usePersonalVoice } }
+    @Published var speakOn: SpeakOn { didSet { save(speakOn.rawValue, "speakOn"); publish() } }
     @Published var onDeviceOnly: Bool { didSet { save(onDeviceOnly, "onDeviceOnly"); captions.onDeviceOnly = onDeviceOnly } }
 
     private func save(_ v: Any, _ k: String) { UserDefaults.standard.set(v, forKey: k) }
@@ -63,6 +64,7 @@ final class VocalModel: ObservableObject {
         suggestionURL = d.string(forKey: "suggestionURL") ?? ""
         phraseSet = PhraseSet(rawValue: d.string(forKey: "phraseSet") ?? "") ?? .everyday
         onDeviceOnly = d.bool(forKey: "onDeviceOnly")
+        speakOn = SpeakOn(rawValue: d.string(forKey: "speakOn") ?? "") ?? .phone
         usePersonalVoice = (d.object(forKey: "usePersonalVoice") as? Bool) ?? true
 
         captions.onDeviceOnly = onDeviceOnly
@@ -122,12 +124,29 @@ final class VocalModel: ObservableObject {
         speakStartedAt = Date()
         setMode(.speaking)
         captions.pause()
-        speech.speak(text, tone: t ?? tone)
+        let useTone = t ?? tone
+        let toGlasses = speakOn != .phone && glasses.status == .connected
+        if toGlasses {
+            Task { [weak self] in
+                guard let self, let r = await self.speech.renderPCM(text, tone: useTone) else {
+                    self?.speech.speak(text, tone: useTone); return      // render failed: phone speaks instead
+                }
+                self.glasses.sendAudio(pcm: r.pcm, rate: r.rate)
+                if self.speakOn == .glasses {
+                    // Phone stays quiet; hold "speaking" for the clip length.
+                    let secs = Double(r.pcm.count / 2) / Double(r.rate) + 0.6
+                    DispatchQueue.main.asyncAfter(deadline: .now() + secs) { [weak self] in self?.replyFinished() }
+                }
+            }
+        }
+        if !toGlasses || speakOn == .both {
+            speech.speak(text, tone: useTone)
+        }
     }
 
     func stopSpeaking() { speech.stop() }
 
-    private func replyFinished() {
+    fileprivate func replyFinished() {
         // Glasses show "Said: …" for at least 2 s.
         let remaining = max(0, 2.0 - Date().timeIntervalSince(speakStartedAt))
         Task { [weak self] in
@@ -254,7 +273,8 @@ final class VocalModel: ObservableObject {
             text: GlassesSnapshot.render(state: mode, caption: cap, replies: replies, quick: quick, said: saidNow),
             final: captions.partial.isEmpty,
             rev: rev, state: mode, caption: cap, replies: replies,
-            quick: quick, tone: tone, said: saidNow, mic: captions.status.wire)
+            quick: quick, tone: tone, said: saidNow, mic: captions.status.wire,
+            speakOn: glasses.status == .connected ? speakOn : .phone)
     }
 
     func publish() {

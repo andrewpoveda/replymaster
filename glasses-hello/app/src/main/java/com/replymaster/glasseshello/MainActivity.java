@@ -490,18 +490,30 @@ public final class MainActivity extends Activity implements TextToSpeech.OnInitL
         } catch (Exception ignored) { }
     }
 
+    private volatile Socket currentClient;
+
+    /** Listen forever: retry if the port can't be bound yet, and let a new phone connection replace a stale one. */
     private void startServer() {
         new Thread(() -> {
-            try (ServerSocket server = new ServerSocket(PORT)) {
-                serverSocket = server;
-                while (running) {
-                    Socket client = server.accept();
-                    client.setTcpNoDelay(true);
-                    client.setKeepAlive(true);
-                    handleClient(client);      // one phone at a time; a new connection replaces the old one
+            while (running) {
+                try (ServerSocket server = new ServerSocket()) {
+                    server.setReuseAddress(true);
+                    server.bind(new java.net.InetSocketAddress(PORT));
+                    serverSocket = server;
+                    while (running) {
+                        Socket client = server.accept();
+                        client.setTcpNoDelay(true);
+                        client.setKeepAlive(true);
+                        Socket old = currentClient;
+                        currentClient = client;
+                        if (old != null) { try { old.close(); } catch (Exception ignored) { } }
+                        new Thread(() -> handleClient(client), "vocal-client").start();
+                    }
+                } catch (Exception e) {
+                    if (!running) return;
+                    ui.post(() -> status.setText("Vocal link restarting… " + e.getMessage()));
+                    try { Thread.sleep(1000); } catch (InterruptedException ie) { return; }
                 }
-            } catch (Exception e) {
-                if (running) ui.post(() -> status.setText("Vocal link error: " + e.getMessage()));
             }
         }, "vocal-server").start();
     }
@@ -514,12 +526,13 @@ public final class MainActivity extends Activity implements TextToSpeech.OnInitL
             ui.post(() -> { hideKeyboard(); highlight = -1; standalonePanel.setVisibility(View.GONE); vocalPanel.setVisibility(View.VISIBLE); renderVocal(); });
             String line;
             while ((line = in.readLine()) != null) {
-                if (line.length() > 16384) continue;
+                if (line.length() > 4_000_000 || (line.length() > 16384 && !line.contains("\"audio\""))) continue;
                 final String l = line;
                 ui.post(() -> apply(l));
             }
         } catch (Exception ignored) {
         } finally {
+            if (client != currentClient) return;   // replaced by a newer phone connection; leave its screen alone
             phoneOut = null;
             ui.post(() -> {
                 endHold();
@@ -534,6 +547,7 @@ public final class MainActivity extends Activity implements TextToSpeech.OnInitL
     private void apply(String line) {
         try {
             JSONObject o = new JSONObject(line);
+            if ("audio".equals(o.optString("type"))) { playPcm(o.optString("pcm16", ""), o.optInt("rate", 22050)); return; }
             if (o.has("rev")) {
                 int rev = o.optInt("rev", -1);
                 if (rev >= 0 && rev <= lastRev) return;      // stale / out of order
@@ -547,7 +561,8 @@ public final class MainActivity extends Activity implements TextToSpeech.OnInitL
             }
             String newState = o.optString("state", "listening");
             caption = o.optString("caption", "");
-            said = o.isNull("said") ? "" : o.optString("said", "");
+            String newSaid = o.isNull("said") ? "" : o.optString("said", "");
+            said = newSaid;
             mic = o.optString("mic", "off");
             List<String> newReplies = strings(o.optJSONArray("replies"));
             boolean repliesChanged = !newReplies.equals(replies);
@@ -558,6 +573,28 @@ public final class MainActivity extends Activity implements TextToSpeech.OnInitL
             state = newState;
             renderVocal();
         } catch (Exception ignored) { }
+    }
+
+    private android.media.AudioTrack track;
+
+    /** Play a spoken reply rendered on the iPhone (base64 16-bit mono PCM) through the glasses speakers. */
+    private void playPcm(String b64, int rate) {
+        if (b64.isEmpty()) return;
+        try {
+            byte[] pcm = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            if (am != null) am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC,
+                    am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC), 0);
+            if (track != null) { try { track.stop(); } catch (Exception ignored) { } track.release(); }
+            track = new android.media.AudioTrack(android.media.AudioManager.STREAM_MUSIC, rate,
+                    android.media.AudioFormat.CHANNEL_OUT_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT,
+                    pcm.length, android.media.AudioTrack.MODE_STATIC);
+            track.write(pcm, 0, pcm.length);
+            track.play();
+            android.util.Log.d("VocalGlasses", "playing " + pcm.length + " bytes @" + rate);
+        } catch (Exception e) {
+            android.util.Log.e("VocalGlasses", "audio failed", e);
+        }
     }
 
     private static List<String> strings(JSONArray a) {

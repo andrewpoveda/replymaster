@@ -31,6 +31,13 @@ enum Mode: String, Codable {
     case listening, choosing, speaking, help
 }
 
+/// Where a spoken reply plays.
+enum SpeakOn: String, CaseIterable, Identifiable, Codable {
+    case phone, glasses, both
+    var id: String { rawValue }
+    var label: String { self == .phone ? "iPhone" : self == .glasses ? "Glasses" : "Both" }
+}
+
 enum PhraseSet: String, CaseIterable, Identifiable {
     case everyday, medical
     var id: String { rawValue }
@@ -82,6 +89,7 @@ struct GlassesSnapshot: Encodable, Equatable {
     var tone: Tone
     var said: String?
     var mic: String
+    var speakOn: SpeakOn = .phone
 
     /// Content equality ignoring `rev`, so we only bump rev on real changes.
     func sameContent(as o: GlassesSnapshot) -> Bool {

@@ -34,6 +34,10 @@ struct SettingsView: View {
                     TextField("Name shown to partner", text: $m.userName)
                     Toggle("Show partner screen while replying", isOn: $m.showPartnerScreen)
                     LabeledContent("Voice", value: m.speech.voiceName)
+                    Picker("Speak replies on", selection: $m.speakOn) {
+                        ForEach(SpeakOn.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 Section {
