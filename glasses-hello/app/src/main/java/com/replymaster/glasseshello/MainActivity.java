@@ -198,6 +198,7 @@ public final class MainActivity extends Activity implements TextToSpeech.OnInitL
     private void takePhoto() {
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (intent.resolveActivity(getPackageManager()) == null) { status.setText("Camera unavailable"); return; }
+        launchingOwnActivity = true;   // our own photo capture: don't bounce back from it
         startActivityForResult(intent, REQUEST_CAMERA);
     }
 
@@ -328,14 +329,24 @@ public final class MainActivity extends Activity implements TextToSpeech.OnInitL
         }
     };
 
-    // The M6 system opens its camera app ~0.3 s after the action button is released; come straight back.
+    // The M6 system opens its camera app ~0.3 s after the action button is released. While the iPhone is
+    // linked (Vocal screen showing), always come straight back so an accidental press never hides the replies.
     private long lastActionButtonAt = 0;
+    private boolean launchingOwnActivity = false;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        launchingOwnActivity = false;
+    }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (System.currentTimeMillis() - lastActionButtonAt < 2500) {
+        boolean recentAction = System.currentTimeMillis() - lastActionButtonAt < 2500;
+        if (!isFinishing() && !launchingOwnActivity && (isVocal() || recentAction)) {
             ui.postDelayed(() -> {
+                if (isFinishing()) return;
                 Intent back = new Intent(this, MainActivity.class);
                 back.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(back);
