@@ -66,9 +66,13 @@ struct GlassesAction: Decodable, Equatable {
     private enum CodingKeys: String, CodingKey { case action, text, tone }
 }
 
-/// iPhone → glasses: full snapshot of what the glasses should show.
+/// iPhone → glasses: full snapshot of what the glasses should show, sent as one JSON line.
+/// `type`/`text`/`final` match Albert's original caption receiver, so even that receiver shows something sensible:
+/// `text` is a ready-to-draw rendering of the whole glasses screen. Newer receivers use the structured fields.
 struct GlassesSnapshot: Encodable, Equatable {
-    var type = "state"
+    var type = "caption"
+    var text: String
+    var final: Bool
     var rev: Int
     var state: Mode
     var caption: String
@@ -84,6 +88,21 @@ struct GlassesSnapshot: Encodable, Equatable {
         var a = self; a.rev = 0
         var b = o; b.rev = 0
         return a == b
+    }
+
+    /// Plain-text rendering of the v3 glasses screen (for simple text receivers).
+    static func render(state: Mode, caption: String, replies: [String], quick: [String], said: String?) -> String {
+        switch state {
+        case .help: return "HELP SENT"
+        case .speaking: return "Said: \(said ?? "")"
+        case .listening, .choosing:
+            var lines: [String] = []
+            lines.append(caption.isEmpty ? "…" : "\u{201C}\(caption)\u{201D}")
+            if !replies.isEmpty { lines.append(""); lines += replies.enumerated().map { "\($0.offset + 1). \($0.element)" } }
+            lines.append("")
+            lines.append(quick.joined(separator: " · "))
+            return lines.joined(separator: "\n")
+        }
     }
 }
 

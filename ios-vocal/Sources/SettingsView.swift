@@ -10,7 +10,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Glasses IP (e.g. 172.20.10.2)", text: $m.glassesHost)
+                    TextField("Glasses IP (empty = find automatically)", text: $m.glassesHost)
                         .keyboardType(.numbersAndPunctuation)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                     TextField("Port", text: $portText)
@@ -27,7 +27,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Glasses link")
                 } footer: {
-                    Text("The glasses app is the WebSocket server (port 8765). Put the glasses on this iPhone's Personal Hotspot and enter their IP. For testing without glasses, run tools/mock-glasses.js on a Mac on the same network.")
+                    Text("The glasses app (glasses-hello) is the server on port 8787, same Wi-Fi as this iPhone. Leave the IP empty to find the glasses automatically, or type the IP the glasses show. To test without glasses, run tools/mock-glasses.js on a Mac and enter the Mac's IP.")
                 }
 
                 Section("You") {

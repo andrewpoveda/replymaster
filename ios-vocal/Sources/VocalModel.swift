@@ -58,7 +58,8 @@ final class VocalModel: ObservableObject {
         let d = UserDefaults.standard
         userName = d.string(forKey: "userName") ?? "Dana"
         glassesHost = d.string(forKey: "glassesHost") ?? ""
-        glassesPort = (d.object(forKey: "glassesPort") as? Int) ?? 8765
+        let savedPort = d.object(forKey: "glassesPort") as? Int
+        glassesPort = (savedPort == nil || savedPort == 8765) ? GlassesLink.defaultPort : savedPort!   // 8765 = old WebSocket default
         suggestionURL = d.string(forKey: "suggestionURL") ?? ""
         phraseSet = PhraseSet(rawValue: d.string(forKey: "phraseSet") ?? "") ?? .everyday
         onDeviceOnly = d.bool(forKey: "onDeviceOnly")
@@ -78,7 +79,7 @@ final class VocalModel: ObservableObject {
         captions.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &bag)
 
         observeInterruptions()
-        if !glassesHost.isEmpty { glasses.connect(host: glassesHost, port: glassesPort) }
+        glasses.connect(host: glassesHost, port: glassesPort)   // empty host = auto-discover over Bonjour
         publish()
     }
 
@@ -226,7 +227,7 @@ final class VocalModel: ObservableObject {
     // MARK: - Glasses connection
 
     func connectGlasses() {
-        if glassesHost.isEmpty { glasses.disconnect() } else { glasses.connect(host: glassesHost, port: glassesPort) }
+        glasses.connect(host: glassesHost, port: glassesPort)
     }
 
     // MARK: - Snapshot
@@ -247,8 +248,13 @@ final class VocalModel: ObservableObject {
     }
 
     var snapshot: GlassesSnapshot {
-        GlassesSnapshot(rev: rev, state: mode, caption: caption.tail(70), replies: replies,
-                        quick: quick, tone: tone, said: mode == .speaking ? said : nil, mic: captions.status.wire)
+        let cap = caption.tail(70)
+        let saidNow = mode == .speaking ? said : nil
+        return GlassesSnapshot(
+            text: GlassesSnapshot.render(state: mode, caption: cap, replies: replies, quick: quick, said: saidNow),
+            final: captions.partial.isEmpty,
+            rev: rev, state: mode, caption: cap, replies: replies,
+            quick: quick, tone: tone, said: saidNow, mic: captions.status.wire)
     }
 
     func publish() {
