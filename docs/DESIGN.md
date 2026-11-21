@@ -3,9 +3,18 @@
 **Status:** Draft v0.2 (Nov 21, 2026) · iPhone hub app in `ios-vocal/`, glasses app in `glasses-hello/`, wire protocol in [`PROTOCOL.md`](PROTOCOL.md)
 
 > **Team decision (Idea Design v4, Nov 21):** the primary user is now **Deaf and hard-of-hearing people** in face-to-face conversation; ALS and speech loss move to "another user" in what's next. Sections 2–6 below still describe the earlier ALS-first concept and are kept for reference. Where this doc and `PROTOCOL.md` disagree, `PROTOCOL.md` wins.
+
 **Working repo name:** replymaster
 
 > **One line:** Vocal is a pair of smart glasses plus an iPhone app that carries one turn of a conversation for you. It hears the other person, shows what they said in your view, suggests what you might say back, and speaks your choice in your own voice.
+
+## Team resources
+
+| What | Link |
+|---|---|
+| Pitch deck (Figma Slides) | https://www.figma.com/slides/Ss4eNvaSVhQpR8k9cGg2Vo |
+| Team doc: idea design, submission prep, timeline, judges | https://docs.google.com/document/d/1k_vGX_GL6342KkjLMG8jeyKqyQ5p39db9iY2SkeZCPE/edit?tab=t.swioqjiqeap9 |
+| Glasses ⇄ iPhone protocol | [`PROTOCOL.md`](PROTOCOL.md) |
 
 ---
 
