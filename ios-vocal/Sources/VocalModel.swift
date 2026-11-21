@@ -146,6 +146,18 @@ final class VocalModel: ObservableObject {
 
     func stopSpeaking() { speech.stop() }
 
+    /// Record the user's own clip for a phrase (captions pause so the mic is free).
+    func startRecording(_ phrase: String) {
+        guard mode == .listening else { return }
+        captions.pause()
+        speech.startRecording(phrase)
+        if speech.recordingPhrase == nil { captions.resume() }
+    }
+    func stopRecording() {
+        speech.stopRecording()
+        if mode == .listening { captions.resume() }
+    }
+
     fileprivate func replyFinished() {
         // Glasses show "Said: …" for at least 2 s.
         let remaining = max(0, 2.0 - Date().timeIntervalSince(speakStartedAt))
