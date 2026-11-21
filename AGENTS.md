@@ -15,6 +15,7 @@ Vocal is an iPhone-first accessibility app for MicroLumin M6 glasses. The iPhone
 - Keep captions readable on the 640×480 glasses display: black background, bright text, and at most two lines.
 - Keep the iPhone as the source of truth for speech and vision processing.
 - Use `adb` only for glasses installation, launching, and logs.
+- Keep the glasses app usable without an iPhone for its standalone listen, reply, speech, and camera proof-of-concept controls.
 - Do not commit signing certificates, provisioning profiles, SDK secrets, or vendor confidential assets.
 - Prefer the existing TCP caption protocol on port `8787` until the vendor glasses-side SDK is available.
 - Update `README.md` when build or demo steps change.
