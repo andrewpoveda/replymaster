@@ -83,6 +83,38 @@ final class SpeechService: NSObject, ObservableObject {
         }
     }
 
+    private let renderSynth = AVSpeechSynthesizer()
+
+    /// Render `text` in the reply voice + tone to mono 16-bit PCM (for playback on the glasses).
+    func renderPCM(_ text: String, tone: Tone) async -> (pcm: Data, rate: Int)? {
+        let u = AVSpeechUtterance(string: text)
+        u.voice = voice
+        u.rate = min(AVSpeechUtteranceMaximumSpeechRate, AVSpeechUtteranceDefaultSpeechRate * tone.rateFactor)
+        u.pitchMultiplier = tone.pitch
+        return await withCheckedContinuation { cont in
+            var out = Data()
+            var rate = 22050
+            var done = false
+            renderSynth.write(u) { buffer in
+                guard !done else { return }
+                guard let pcm = buffer as? AVAudioPCMBuffer, pcm.frameLength > 0 else {
+                    done = true
+                    cont.resume(returning: out.isEmpty ? nil : (out, rate))
+                    return
+                }
+                rate = Int(pcm.format.sampleRate)
+                let n = Int(pcm.frameLength)
+                if let f = pcm.floatChannelData?[0] {
+                    var samples = [Int16](repeating: 0, count: n)
+                    for i in 0..<n { samples[i] = Int16(max(-1, min(1, f[i])) * 32767) }
+                    samples.withUnsafeBytes { out.append(contentsOf: $0) }
+                } else if let i16 = pcm.int16ChannelData?[0] {
+                    out.append(Data(bytes: i16, count: n * 2))
+                }
+            }
+        }
+    }
+
     /// Speak exactly `text`. Ignored while already speaking or during HELP (one press = one utterance).
     func speak(_ text: String, tone: Tone) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)

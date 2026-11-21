@@ -77,6 +77,15 @@ final class GlassesLink: ObservableObject {
         if status == .connected { transmit(data) }
     }
 
+    /// Send a spoken reply as audio for the glasses to play (one line: base64 16-bit mono PCM).
+    func sendAudio(pcm: Data, rate: Int) {
+        guard status == .connected else { return }
+        let obj: [String: Any] = ["type": "audio", "rate": rate, "pcm16": pcm.base64EncodedString()]
+        guard var data = try? JSONSerialization.data(withJSONObject: obj) else { return }
+        data.append(0x0A)
+        transmit(data)
+    }
+
     // MARK: - Discovery
 
     private func startBrowsing() {
