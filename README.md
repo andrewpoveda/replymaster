@@ -44,8 +44,22 @@ The glasses app is the WebSocket server (port 8765). Put the glasses on the iPho
 | Pauses captions while speaking so Vocal doesn't caption itself | Built |
 | Type a reply (say something no suggestion covered) | Built |
 | Question → answer race timer (Vocal vs typing, median, copy summary) | Built |
-| Personal Voice: replies use the user's Apple Personal Voice when one exists and is allowed | Built; not yet tried with a real Personal Voice |
+| Personal Voice: replies use the user's Apple Personal Voice when one exists and is allowed (asks once on first launch) | Built; the voice was still being prepared by iOS at demo time |
+| My recordings: the user records each quick phrase; matching replies play the clip on the iPhone and the glasses | Built; tested on iPhone 15 + M6 glasses |
 | WebSocket link to the glasses app, auto-reconnect, full state snapshots | Built; tested only against the mock |
+
+### Demo: replies in the user's own voice
+
+Apple Personal Voice takes about 20 minutes to record and then 8–12 hours for iOS to prepare, so for a same-day demo record the quick phrases instead:
+
+1. In Vocal, open **Settings → My recordings**. It lists the six quick phrases of the current phrase set (Everyday: Yes, No, Wait, Repeat please, Thank you, Haha).
+2. For each phrase tap **Record**, say it, tap **Stop** (10 s max). **Play** checks it, **Redo** replaces it, the trash icon deletes it. Record while Vocal is listening, not while it is speaking or in HELP.
+3. Connect the glasses and set **Speak replies on** to **Glasses** (or **Both**).
+4. Pick "Yes" or "Thank you" from the glasses temple: the glasses play the user's own recording.
+5. Pick one of the three suggested replies: it uses the synthetic voice (Personal Voice once ready, otherwise the system voice).
+6. Hold HELP: it always uses the system voice, then cancel.
+
+Notes: a reply plays a recording only when its text matches a recorded phrase (case and punctuation ignored). Tones don't change recordings. Recordings are stored on the iPhone and survive reinstalls. The Medical set needs its own recordings, except Yes and No. When Personal Voice finishes preparing, open Vocal: **Settings → Voice** shows "<name> (Personal Voice)". If iOS won't render the Personal Voice for the glasses, the phone speaks the reply and Settings says why.
 
 **Not built today (from the v3 cut list):** environmental sound alerts, Deaf caption mode, caregiver text/call on HELP, head-nod and eye-gaze input, learning the user's style.
 
